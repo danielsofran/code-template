@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Upload ZIP File</title>
+</head>
+<body>
+    <h2>Upload Template ZIP</h2>
+    <form action="http://localhost:8000/template/load" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".zip" required><br>
+        <input type="text" name="name" placeholder="Template Name"><br>
+        <button type="submit">Upload</button><br>
+    </form>
+    <br><br>
+    <label for="input"></label>
+    <textarea id="input" cols="200" rows="20" placeholder="Input">
+{
+    "name": "john doe",
+    "value1": 5,
+    "value2": 10,
+    "text": "hello world",
+    "num1": 5,
+    "num2": 3,
+    "items": ["apple", "banana", "cherry"],
+    "current_time": "2023-10-01T12:00:00Z"
+}
+    </textarea><br>
+    <button onclick="render()">Render</button><br>
+    <script>
+        const render = () => {
+            const input = document.getElementById("input").value;
+            if (!input) {
+                alert("Input is required");
+                return;
+            }
+            try {
+                JSON.parse(input);
+            } catch (e) {
+                alert("Invalid JSON input");
+                return;
+            }
+            fetch("http://localhost:8000/template/render?template_name=default_template", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: input,
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(JSON.stringify(data));
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+    </script>
+</body>
+</html>
