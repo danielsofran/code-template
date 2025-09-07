@@ -44,6 +44,7 @@
                     "Content-Type": "application/json"
                 },
                 body: input,
+                mode: "no-cors"
             })
             .then(response => response.json())
             .then(data => {
