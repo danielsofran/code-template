@@ -8,6 +8,16 @@ def __first_level_folders(path):
     items = os.listdir(path)
     return [item for item in items if os.path.isdir(os.path.join(path, item))]
 
+def __create_output_folder(template_name):
+    output_folder = os.path.join(BASE_DIR, 'toutput', template_name)
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
+    return output_folder
+
+def __only_callable_values(d):
+    return {k: v for k, v in d.items() if callable(v)}
+
 def __load_python_files_from_folder(folder_path):
     python_elements = {}
     if not os.path.exists(folder_path):
@@ -28,10 +38,7 @@ def __load_python_files_from_folder(folder_path):
             print(f"Error loading {py_name} from {py_path}: {e}")
     return python_elements
 
-def __only_callable_values(d):
-    return {k: v for k, v in d.items() if callable(v)}
-
-def render(template_folder, context):
+def __create_jinja_env(template_folder):
     folders = __first_level_folders(template_folder)
     if not 'project' in folders:
         raise ValueError("No 'project' folder found in the template")
@@ -63,14 +70,21 @@ def render(template_folder, context):
     # add other python functions / data to globals
     for name, func in other_python.items():
         env.globals[name] = func
+    return env
+
+def render(template_folder, context):
+    project_folder = os.path.join(template_folder, 'project')
+    env = __create_jinja_env(template_folder)
     template_name = os.path.basename(template_folder)
-    output_folder = os.path.join(BASE_DIR, 'toutput', template_name)
+    output_folder = __create_output_folder(template_name)
+
     # render all files in the project folder
     for root, dirs, files in os.walk(project_folder):
         for file in files:
+            template_path = os.path.relpath(os.path.join(root, file), project_folder)
+            template_path = str(template_path).replace('\\', '/')
             if file.endswith('.jinja') or file.endswith('.j2'):
-                template_path = os.path.relpath(os.path.join(root, file), project_folder)
-                template = env.get_template(template_path) #HERE
+                template = env.get_template(template_path)
                 output = template.render(context)
                 # determine the output path
                 relative_path = os.path.relpath(os.path.join(root, file), project_folder)
@@ -80,8 +94,7 @@ def render(template_folder, context):
                 os.makedirs(output_dir, exist_ok=True)
                 with open(output_path, 'w') as f:
                     f.write(output)
-            else:
-                # copy the file as is
+            else: # copy the file as is
                 source_path = os.path.join(root, file)
                 relative_path = os.path.relpath(source_path, project_folder)
                 output_path = os.path.join(output_folder, relative_path)
