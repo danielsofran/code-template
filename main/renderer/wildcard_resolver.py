@@ -1,6 +1,7 @@
 import random
+import re
 import string
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Callable
 
 from jinja2 import Environment
 
@@ -18,6 +19,97 @@ def __create_evaluation_context(context: dict, env: Environment) -> Dict[str, An
     for global_name, global_value in env.globals.items():
         eval_context[global_name] = global_value
     return eval_context.copy()
+
+# def __extract_filter_part(part: str, env: Environment) -> Tuple[str, List[Tuple[Callable, List[Any]]]]:
+#     """
+#     Extract filters from a part of the wildcard.
+#     :returns: Tuple of filter name and list of filters.
+#     The list of filters is a list of tuples (filter_function, [args])
+#     1. If no filters are found, the list is empty.
+#     2. If a filter is found without arguments, the args list is empty.
+#     3. If a filter is found with arguments, the args list contains the arguments.
+#     4. If a filter is not found in the Jinja2 environment, an exception is raised.
+#     """
+#     if '|' not in part:
+#         return part.strip(), []
+#     base_part, *filter_names = part.split('|')
+#     filters = []
+#     eval_context = __create_evaluation_context({}, env)
+#     for filter_name in filter_names:
+#         if filter_name in env.filters:
+#             filters.append((env.filters[filter_name], []))
+#         elif '(' in filter_name and filter_name.endswith(')'):
+#             fname, fargs = filter_name.split('(', 1)
+#             if fname not in env.filters:
+#                 raise Exception(f"Filter '{filter_name}' not found in Jinja2 environment.")
+#             args = str(fargs)[:-1]  # remove the closing parenthesis
+#             args = [arg.strip() for arg in args.split(',') if arg.strip()]
+#             for i, arg in enumerate(args):
+#                 try: args[i] = eval(arg, {}, eval_context)
+#                 except Exception as e:
+#                     # try putting the arg as string
+#                     try: args[i] = eval(f"'{arg}'", {}, eval_context)
+#                     except Exception as e2:
+#                         raise Exception(f"Error evaluating argument '{arg}' for filter '{filter_name}': {e}; {e2}")
+#             filters.append((env.filters[fname], args))
+#         else: raise Exception(f"Filter '{filter_name}' not found in Jinja2 environment.")
+#     return base_part, filters
+
+def __extract_filters(wildcard: str, env: Environment) -> Tuple[str, List[Tuple[Callable, List[str]]]]:
+    """
+    Extract filter functions and their raw argument strings.
+    :returns: List of tuples (filter_function, [raw_args])
+    """
+    if '$' not in wildcard:
+        return wildcard.strip(), []
+
+    base_part, *filter_specs = wildcard.split('$')
+    base_part = base_part.strip()
+
+    filters = []
+    for filter_spec in filter_specs:
+        filter_spec = filter_spec.strip()
+
+        # Filter without arguments
+        if filter_spec in env.filters:
+            filters.append((env.filters[filter_spec], []))
+        # Filter with arguments
+        elif '(' in filter_spec and filter_spec.endswith(')'):
+            fname, fargs = filter_spec.split('(', 1)
+            fname = fname.strip()
+            if fname not in env.filters:
+                raise Exception(f"Filter '{filter_spec}' not found in Jinja2 environment.")
+
+            # Extract raw arguments (still as strings)
+            args_str = fargs[:-1]  # remove closing parenthesis
+            raw_args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
+            filters.append((env.filters[fname], raw_args))
+        else:
+            raise Exception(f"Filter '{filter_spec}' not found in Jinja2 environment.")
+
+    return base_part, filters
+
+def __evaluate_filter_args(raw_args: List[str], filter_name: str, eval_context: dict) -> List[Any]:
+    """
+    Evaluate raw argument strings to actual values.
+    :param raw_args: List of raw argument strings
+    :param filter_name: Name of the filter (for error messages)
+    :param eval_context: Evaluation context
+    :returns: List of evaluated arguments
+    """
+    evaluated_args = []
+    for arg in raw_args:
+        try:
+            evaluated_arg = eval(arg, {}, eval_context)
+            evaluated_args.append(evaluated_arg)
+        except Exception as e:
+            # Try treating the argument as a string literal
+            try:
+                evaluated_arg = eval(f"'{arg}'", {}, eval_context)
+                evaluated_args.append(evaluated_arg)
+            except Exception as e2:
+                raise Exception(f"Error evaluating argument '{arg}' for filter '{filter_name}': {e}; {e2}")
+    return evaluated_args
 
 def __process_wildcard(wildcard: str, eval_context: dict, previous_resolved_value = None) -> List[Tuple[str, Dict[str, Any]]]:
     """
@@ -99,11 +191,37 @@ def resolve_path(path: str, context: dict, env: Environment) -> List[Tuple[str, 
     start_index = path.find('%')
     end_index = path.find('%', start_index + 1)
     wildcard = path[start_index + 1:end_index]
-    resolved_paths = __process_wildcard(wildcard, evaluation_context)
+    value, filters = __extract_filters(wildcard, env)
+    resolved_paths = __process_wildcard(value, evaluation_context)
     rez = []
     for resolved_path, additional_context in resolved_paths:
         final_additional_context = context.copy()
         final_additional_context.update(additional_context)
+        for filter_func, raw_args in filters:
+            eval_args = __evaluate_filter_args(raw_args, filter_func.__name__, __create_evaluation_context(final_additional_context, env))
+            has_special_arg = False
+            # if function is annotated with pass_context, add the context as first argument
+            if getattr(filter_func, 'jinja_pass_arg', None) is not None:
+                # what to pass: context or environment?
+                pass_arg = getattr(filter_func, 'jinja_pass_arg')
+                if getattr(pass_arg, 'name', None) == 'context':
+                    eval_args = [final_additional_context] + eval_args
+                    has_special_arg = True
+                elif getattr(pass_arg, 'name', None) == 'environment':
+                    eval_args = [env] + eval_args
+                    has_special_arg = True
+            if not callable(filter_func):
+                raise Exception(f"Filter '{filter_func}' is not callable.")
+            try:
+                resolved_path = filter_func(eval_args[0], resolved_path, *eval_args[1:]) if has_special_arg \
+                    else filter_func(resolved_path, *eval_args)
+            except Exception as e:
+                raise Exception(f"Error applying filter '{filter_func.__name__}' with args {eval_args} on value '{resolved_path}': {e}")
+            # update the context with the new resolved_path
+            resolved_path = re.sub(r'[^a-zA-Z0-9/._-]', '', str(resolved_path).replace('\\', '/'))
+            additional_context[wildcard] = resolved_path
+            final_additional_context[wildcard] = resolved_path
+
         new_path = path[:start_index] + resolved_path + path[end_index + 1:]
         start_rez_index = len(rez)
         rez += resolve_path(new_path, final_additional_context, env)
