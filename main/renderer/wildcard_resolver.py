@@ -27,6 +27,15 @@ def __process_wildcard(wildcard: str, eval_context: dict, previous_resolved_valu
     wildcard = "models.user.fields"
     This will evaluate models from the context, then user from models, then fields from user.
     """
+    # before splitting, check if the wildcard already exists in the eval_contex
+    # second check, previous_resolved_value is None, is required as models.name will return john_doe instead of validating the dict (models.)
+    if wildcard in eval_context and previous_resolved_value is None:
+        resolved_value = eval_context[wildcard]
+        if not isinstance(resolved_value, dict) and not isinstance(resolved_value, list):
+            return [(str(resolved_value), {wildcard: str(resolved_value)})]
+        elif isinstance(resolved_value, list):
+            return resolved_value
+        raise Exception(f"Error evaluating wildcard '{wildcard}': {resolved_value}. Unknown resolved_value type.")
     parts = wildcard.split('.')
     part = parts[0]
     rest = '.'.join(parts[1:])
@@ -76,7 +85,6 @@ def __process_wildcard(wildcard: str, eval_context: dict, previous_resolved_valu
         return [(str(resolved_value), {wildcard: str(resolved_value)})]
     elif isinstance(resolved_value, list):
         return resolved_value
-    # TODO: recursion does not return the correct resolved path and additional context
     raise Exception(f"Error evaluating part '{part}': {resolved_value}. Unknown resolved_value type.")
 
 
