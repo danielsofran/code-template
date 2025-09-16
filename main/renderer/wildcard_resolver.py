@@ -119,15 +119,6 @@ def __process_wildcard(wildcard: str, eval_context: dict, previous_resolved_valu
     wildcard = "models.user.fields"
     This will evaluate models from the context, then user from models, then fields from user.
     """
-    # before splitting, check if the wildcard already exists in the eval_contex
-    # second check, previous_resolved_value is None, is required as models.name will return john_doe instead of validating the dict (models.)
-    if wildcard in eval_context and previous_resolved_value is None:
-        resolved_value = eval_context[wildcard]
-        if not isinstance(resolved_value, dict) and not isinstance(resolved_value, list):
-            return [(str(resolved_value), {wildcard: str(resolved_value)})]
-        elif isinstance(resolved_value, list):
-            return resolved_value
-        raise Exception(f"Error evaluating wildcard '{wildcard}': {resolved_value}. Unknown resolved_value type.")
     parts = wildcard.split('.')
     part = parts[0]
     rest = '.'.join(parts[1:])
@@ -170,7 +161,8 @@ def __process_wildcard(wildcard: str, eval_context: dict, previous_resolved_valu
         # need to enhance. add {part}.{item.resolved_path} to the resolved_path
         # and same for the keys in the additional context
         return [
-            (item[0], {f"{part}.{k}": v for k, v in item[1].items()})
+            # (item[0], {f"{part}.{k}": v for k, v in item[1].items()})
+            (item[0], {part: item[1]})
             for item in resolved_rest
         ]
     if not isinstance(resolved_value, dict) and not isinstance(resolved_value, list):
