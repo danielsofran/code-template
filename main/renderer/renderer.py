@@ -27,7 +27,7 @@ def render(template_folder, context):
             for resolved_path, additional_context in resolved_paths:
                 print("Processing file:", template_path, "->", resolved_path, "with context:", additional_context)
                 if resolved_path.endswith('.jinja') or resolved_path.endswith('.j2'):
-                    template = env.get_template(template_path)
+                    template = env.get_template('project/' + template_path)
                     full_context = context.copy()
                     full_context.update({"_path": additional_context})
                     output = template.render(full_context)

@@ -5,6 +5,19 @@ from typing import List, Tuple, Dict, Any, Callable
 
 from jinja2 import Environment
 
+def __deep_merge(dict1, dict2):
+    """
+    Deep merge two dictionaries.
+    dict2 values will override dict1 values.
+    For nested dicts, merge recursively.
+    """
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = __deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 def __create_evaluation_context(context: dict, env: Environment) -> Dict[str, Any]:
     """
@@ -187,8 +200,7 @@ def resolve_path(path: str, context: dict, env: Environment) -> List[Tuple[str, 
     resolved_paths = __process_wildcard(value, evaluation_context)
     rez = []
     for resolved_path, additional_context in resolved_paths:
-        final_additional_context = context.copy()
-        final_additional_context.update(additional_context)
+        final_additional_context = __deep_merge(context, additional_context)
         for filter_func, raw_args in filters:
             eval_args = __evaluate_filter_args(raw_args, filter_func.__name__, __create_evaluation_context(final_additional_context, env))
             has_special_arg = False
@@ -218,5 +230,5 @@ def resolve_path(path: str, context: dict, env: Environment) -> List[Tuple[str, 
         start_rez_index = len(rez)
         rez += resolve_path(new_path, final_additional_context, env)
         for i in range(start_rez_index, len(rez)):
-            rez[i][1].update(additional_context)
+            rez[i][1].update(__deep_merge(rez[i][1], additional_context))
     return rez

@@ -3,6 +3,8 @@ import os
 
 from jinja2 import Environment, FileSystemLoader
 
+from main.renderer.defaults import render_fragment
+
 
 def __first_level_folders(path):
     items = os.listdir(path)
@@ -53,13 +55,14 @@ def create_jinja_env(template_folder):
             other_folder = os.path.join(template_folder, folder)
             python_elements = __load_python_files_from_folder(other_folder)
             other_python.update(python_elements)
-    env = Environment(loader=FileSystemLoader(project_folder))
+    env = Environment(loader=FileSystemLoader(template_folder))
     # add filters
     for name, func in filters.items():
         env.filters[name] = func
     # add tests
     for name, func in tests.items():
         env.tests[name] = func
+    env.globals['render_fragment'] = render_fragment
     # add other python functions / data to globals
     for name, func in other_python.items():
         env.globals[name] = func
