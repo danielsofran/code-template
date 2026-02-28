@@ -2,6 +2,9 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+import pysqlite3
+
+sys.modules['sqlite3'] = pysqlite3
 
 
 def main():

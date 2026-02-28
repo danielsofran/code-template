@@ -4,3 +4,4 @@
 toutput
 *.pyc
 db.sqlite3
+.venv
