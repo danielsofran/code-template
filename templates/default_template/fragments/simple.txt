@@ -1,0 +1,4 @@
+ from simple.txt
+ {{ _path | tojson }}
+ {{ a }}
+ {{ object.name }}

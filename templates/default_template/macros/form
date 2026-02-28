@@ -1,0 +1,14 @@
+{% macro test_macro() %}
+    <div>This is a test macro</div>
+{% endmacro %}
+
+{%- macro render_input(name, value='', type='text', label='', placeholder='', required=false) %}
+    <div class="form-group">
+        {%- if label %}
+            <label for="{{ name }}">{{ label }}{% if required %} *{% endif %}</label>
+        {% endif -%}
+        <input type="{{ type }}" class="form-control" id="{{ name }}" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}"{% if required %} required{% endif %}>
+        {% for item in range(3) -%}
+            {{ item }} {% endfor %}
+    </div>
+{% endmacro -%}

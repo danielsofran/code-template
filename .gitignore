@@ -1,6 +1,6 @@
 .idea
 */__pycache__/**
-templates
+#templates
 toutput
 *.pyc
 db.sqlite3

@@ -1,0 +1,38 @@
+<h2>Jinja2 Template with Custom Filters and Functions</h2>
+
+<p><strong>Original text:</strong> {{ text }}</p>
+<p><strong>Reversed:</strong> {{ text | reverse }}</p>
+<p><strong>Capitalized:</strong> {{ text | capitalize }}</p>
+<p><strong>Custom replacement:</strong> {{ text | replace('hello', 'HELLO') }}</p>
+
+<hr>
+
+<h3>Mathematical Operations</h3>
+<p>{{ num1 }} * {{ num2 }} = {{ multiply(num1, num2) }}</p>
+
+<hr>
+
+<h3>Data from Context</h3>
+<ul>
+{% for item in items %}
+    <li>{{ item | reverse }}</li>
+{% endfor %}
+</ul>
+
+{{ items | tojson }}
+
+{{ items | tojson }}
+
+<hr>
+
+<h3>Direct Python Execution</h3>
+<p>Length of text: {{ text | length }}</p>
+
+<P>Context aware</P>
+{{ "Context aware" | context_aware_filter("AWARE VAL") }}
+{{ content_aware_function(11, 2) }}
+<P> value2 is {% if value2 is adult %} an adult {% else %} not an adult {% endif %}</P>
+<p>{{ DATA }}</p>
+
+<!-- Fragment  -->
+{{ render_fragment('simple.txt', {'a': 2}) }}
